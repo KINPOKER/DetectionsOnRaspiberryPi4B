@@ -182,14 +182,6 @@ def movingDetection(pre_frame, image_np):
             )
 
             print("something is moving!!!")
-            # led = True
-
-            # if led:
-            #     for i in range(30):
-            #      GPIO.output(18, GPIO.HIGH)
-            # time.sleep(0.03)
-            # GPIO.output(18, GPIO.LOW)
-            # time.sleep(0.03)
 
     return pre_frame, image_np
 
@@ -326,14 +318,14 @@ def removeBackgroundNoise(frame):
 
 
 # 视频数据的人体皮肤检测
-def bodySkinDetection(frame, ):
+def bodySkinDetection(frame):
     # 将移除背景后的图像转换为灰度图
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # 加高斯模糊
     blur = cv2.GaussianBlur(gray, (41, 41), 0)
 
     # 二值化处理
-    ret, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    ret, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     if ret:
         return thresh
@@ -344,16 +336,17 @@ def getContours(frame):
     # 利用findContours检测图像中的轮廓, 其中返回值contours包含了图像中所有轮廓的坐标点
     contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    length = len(contours)
+    size = len(contours)
     maxArea = -1
     ci = 0
-    if length > 0:
-        for i in range(length):
+    if size > 0:
+        for i in range(size):
             # 找到最大的轮廓（根据面积）
             temp = contours[i]
             # 计算轮廓区域面积
             area = cv2.contourArea(temp)
-            if int(area > maxArea) & int(area < 100) & int(area > 50):
+            length = cv2.arcLength(temp, True)
+            if area > maxArea:
                 maxArea = area
                 ci = i
 
@@ -371,38 +364,7 @@ def getEucledianDistance(vector1, vector2):
 
 
 # 计算有效手指个数
-def getDefectsCount(largestContour, center, drawing):
-    # def getDefectsCount(array, contour, defects, verbose=False):
-    # defectNumbers = 0
-    #
-    # for i in range(defects.shape[0]):
-    #     s, e, f, d = defects[i, 0]
-    #     # 起点
-    #     beginPoint = tuple(contour[s][0])
-    #     # 终点
-    #     endPoint = tuple(contour[e][0])
-    #     # 最远点
-    #     farPoint = tuple(contour[f][0])
-    #
-    #     # 根据图像中凹凸点中的 (开始点, 结束点, 远点)的坐标, 利用余弦定理计算两根手指之间的夹角
-    #     a = getEucledianDistance(beginPoint, endPoint)
-    #     b = getEucledianDistance(beginPoint, farPoint)
-    #     c = getEucledianDistance(endPoint, farPoint)
-    #     if (2 * b * c) == 0:
-    #         angle = math.pi
-    #     else:
-    #         angle = math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c))  # * 57
-    #
-    #     if angle <= math.pi / 5:  # 36度:
-    #         defectNumbers = defectNumbers + 1
-    #
-    #         if verbose:
-    #             cv2.circle(array, farPoint, 3, (255, 0, 0), -1)
-    #
-    #     if verbose:
-    #         cv2.line(array, beginPoint, endPoint, (255, 0, 0), 1)
-    #     return array,defectNumbers
-
+def getDefectsCount(largestContour, center, drawing, minDistance):
     fingerRes = []  # 寻找指尖
     maxDistance = 0
     count = 0
@@ -424,13 +386,13 @@ def getDefectsCount(largestContour, center, drawing):
                 maxDistance = 0
                 flag = False  # 布尔值
 
-                # 低于手心的点不算
-                if center[1] < largestContour[notice][0][1]:
-                    continue
+                # # 低于手心的点不算
+                # if center[1] < largestContour[notice][0][1]:
+                #     continue
 
                 # 离得太近的不算
                 for j in range(len(fingerRes)):
-                    if abs(largestContour[notice][0][0] - fingerRes[j][0]) < 20:
+                    if abs(largestContour[notice][0][0] - fingerRes[j][0]) < minDistance:
                         flag = True
                         break
                 if flag:
@@ -454,11 +416,11 @@ def getDefectsCount(largestContour, center, drawing):
                 )
                 defectNumbers = defectNumbers + 1
 
-    return defectNumbers
+    return defectNumbers, drawing
 
 
 # 手势识别
-def gestureDetection(array):
+def gestureDetection(array, minDistance, gesture):
     copy = array.copy()
 
     # 移除背景
@@ -468,62 +430,58 @@ def gestureDetection(array):
     # 计算图像的轮廓
     largestContour = getContours(thresh.copy())
 
-    # 得出点集（组成轮廓的点）的凸包
-    hull = cv2.convexHull(largestContour)
+    if largestContour is not None:
+        # 得出点集（组成轮廓的点）的凸包
+        hull = cv2.convexHull(largestContour)
 
-    # 画出最大区域轮廓
-    cv2.drawContours(
-        copy,
-        [largestContour],
-        0,
-        (0, 255, 0),
-        2
-    )
-    # 画出凸包轮廓
-    cv2.drawContours(
-        copy,
-        [hull],
-        0,
-        (0, 0, 255),
-        3
-    )
+        # 画出最大区域轮廓
+        cv2.drawContours(
+            copy,
+            [largestContour],
+            0,
+            (0, 255, 0),
+            2
+        )
+        # 画出凸包轮廓
+        cv2.drawContours(
+            copy,
+            [hull],
+            0,
+            (0, 0, 255),
+            3
+        )
 
-    center = (0, 0)
-    # 求最大区域轮廓的各阶矩
-    moments = cv2.moments(largestContour)
-    if moments['m00'] != 0:
-        center = (int(moments['m10'] / moments['m00']), int(moments['m01'] / moments['m00']))
-    # 画出重心
-    cv2.circle(
-        copy,
-        center,
-        8,
-        (0, 0, 255),
-        -1
-    )
+        center = (0, 0)
+        # 求最大区域轮廓的各阶矩
+        moments = cv2.moments(largestContour)
+        if moments['m00'] != 0:
+            center = (int(moments['m10'] / moments['m00']), int(moments['m01'] / moments['m00']))
+        # 画出重心
+        cv2.circle(
+            copy,
+            center,
+            8,
+            (0, 0, 255),
+            -1
+        )
 
-    defectNumbers = getDefectsCount(largestContour, center, copy)
+        defectNumbers, drawing = getDefectsCount(largestContour, center, copy, minDistance)
 
-    return copy, defectNumbers
+        return drawing, defectNumbers
+    else:
+        return array, 0
 
-    # # 获得凸包点 x, y坐标
-    # hull = cv2.convexHull(largeContour, returnPoints=False)
-    # largestContour = getContours(thresh.copy())
-    # # 计算轮廓的凹点
-    # defects = cv2.convexityDefects(largeContour, hull)
 
-    # defects反馈的是Nx4的数组
-    # 第一列表示的是起点（轮廓集合中点的编号）
-    # 第二列表示的是终点（轮廓集合中点的编号）
-    # 第三列表示的是最远点（轮廓集合中点的编号）
-    # 第四列表示的是最远点到凸轮廓的最短距离
+# 调整最低阈值回调函数
+def updateThresholdLow():
+    x = cv2.getTrackbarPos('minDistance', 'DoDetections!')
+    print(x)
 
-    # if defects is not None:
-    #     # 利用凹陷点坐标, 计算图像中锐角个数
-    #     copy, defectNumbers = getDefectsCount(copy, largeContour, defects, verbose=verbose)
-    #
-    #     # 根据锐角个数判断手势并返回
-    #     return copy, defectNumbers
+
+# 调整最高阈值回调函数
+def updateThresholdHigh():
+    x = cv2.getTrackbarPos('gesture', 'DoDetections!')
+    print(x)
 
 
 def main():
@@ -558,29 +516,43 @@ def main():
         print('please connect the camera')
         exit()
 
+    # 创建窗口
+    cv2.namedWindow('DoDetections!', cv2.WINDOW_NORMAL)
+
+    # 创建低阈值调节条
+    cv2.createTrackbar('minDistance', 'DoDetections!', 0, 100, updateThresholdLow)
+    # 创建高阈值调节条
+    cv2.createTrackbar('gesture', 'DoDetections!', 1, 5, updateThresholdHigh)
+
+    # 完成调节条的初始设置
+    cv2.setTrackbarPos('minDistance', 'DoDetections!', 40)
+    cv2.setTrackbarPos('gesture', 'DoDetections!', 1)
+
+    # cv2.resizeWindow('DoDetections!', args["width"], args["height"] + 60)
+
     cap.set(3, args["width"])  # set Width
     cap.set(4, args["height"])  # set Height
 
     pre_frame = None
-    gesture = 0
 
     while True:
         ret, img = cap.read()
         if not ret:
             break
-        img = cv2.flip(img, 1)
 
-        if gesture == 1:
+        gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+
+        if gesture == 2:
             cv2.putText(
                 img,
-                "You chose the object detection",
+                "You chose the object detection!",
                 (20, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
                 (0, 0, 255),
                 2
             )
-            time.sleep(10)
+            cv2.imshow('DoDetections!', img)
 
             # 物体识别
             with detection_graph.as_default():
@@ -599,24 +571,40 @@ def main():
                         # press 'ESC' to quit
                         k = cv2.waitKey(30) & 0xff
                         if k == 27:
+                            gesture = 1
                             break
 
-                        image_np = objectDetection(sess, detection_graph, category_index, image_np)
+                        pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+                        if pre_gesture != gesture:
+                            gesture = pre_gesture
+                            break
+
+                        image_np = objectDetection(sess, detection_graph, category_index, frame)
+
+                        cv2.putText(
+                            image_np,
+                            "Doing object detection!",
+                            (20, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.75,
+                            (0, 0, 255),
+                            2
+                        )
 
                         odend = time.process_time()
                         print("One frame object detect took {:.6f} seconds".format(odend - odstart))
-                        cv2.imshow('Object Detection', image_np)
-        elif gesture == 2:
+                        cv2.imshow('DoDetections!', image_np)
+        elif gesture == 3:
             cv2.putText(
                 img,
-                "You chose the text detection !",
+                "You chose the text detection!",
                 (20, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
                 (0, 0, 255),
                 2
             )
-            time.sleep(10)
+            cv2.imshow('DoDetections!', img)
 
             # 文字识别
             while True:
@@ -628,24 +616,39 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
+                    gesture = 1
+                    break
+
+                pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+                if pre_gesture != gesture:
+                    gesture = pre_gesture
                     break
 
                 image_np = textDetection(frame)
+                cv2.putText(
+                    image_np,
+                    "Doing text detection!",
+                    (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75,
+                    (0, 0, 255),
+                    2
+                )
 
                 tdend = time.process_time()
                 print("One frame text detect took {:.6f} seconds".format(tdend - tdstart))
-                cv2.imshow('Text Detection', image_np)
-        elif gesture == 3:
+                cv2.imshow('DoDetections!', image_np)
+        elif gesture == 4:
             cv2.putText(
                 img,
-                "You chose the face detection !",
+                "You chose the face detection!",
                 (20, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
                 (0, 0, 255),
                 2
             )
-            time.sleep(3)
+            cv2.imshow('DoDetections!', img)
 
             # 人脸、眼睛、微笑识别
             while True:
@@ -657,24 +660,39 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
+                    gesture = 1
+                    break
+
+                pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+                if pre_gesture != gesture:
+                    gesture = pre_gesture
                     break
 
                 image_np = faceDetection(frame)
+                cv2.putText(
+                    image_np,
+                    "Doing face detection!",
+                    (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75,
+                    (0, 0, 255),
+                    2
+                )
 
                 fdend = time.process_time()
                 print("One frame face detect took {:.6f} seconds".format(fdend - fdstart))
-                cv2.imshow('Face Detection', image_np)
-        elif gesture == 4:
+                cv2.imshow('DoDetections!', image_np)
+        elif gesture == 5:
             cv2.putText(
                 img,
-                "You chose the moving detection !",
+                "You chose the moving detection!",
                 (20, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.75,
                 (0, 0, 255),
                 2
             )
-            time.sleep(3)
+            cv2.imshow('DoDetections!', img)
 
             # 移动物体识别
             while True:
@@ -686,25 +704,29 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
+                    gesture = 1
+                    break
+
+                pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+                if pre_gesture != gesture:
+                    gesture = pre_gesture
                     break
 
                 pre_frame, image_np = movingDetection(pre_frame, frame)
+                cv2.putText(
+                    image_np,
+                    "Doing moving detection!",
+                    (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75,
+                    (0, 0, 255),
+                    2
+                )
 
                 fdend = time.process_time()
                 print("One frame face detect took {:.6f} seconds".format(fdend - fdstart))
-                cv2.imshow('Moving Detection', image_np)
+                cv2.imshow('DoDetections!', image_np)
         else:
-            cv2.putText(
-                img,
-                "please choose a kind of detection",
-                (20, 50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.75,
-                (0, 0, 255),
-                2
-            )
-            time.sleep(10)
-
             while True:
                 ret, frame = cap.read()
                 if not ret:
@@ -715,11 +737,30 @@ def main():
                 if k == 27:
                     break
 
-                frame, gesture = gestureDetection(frame)
-                cv2.imshow('Gesture Detection', frame)
-
-                if gesture == 1 | gesture == 2 | gesture == 3 | gesture == 4:
+                pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
+                if pre_gesture != gesture:
+                    gesture = pre_gesture
                     break
+
+                # 获取阈值
+                minDistance = cv2.getTrackbarPos('minDistance', 'DoDetections!')
+                frame, gesture = gestureDetection(frame, minDistance, gesture)
+
+                if (gesture == 2) | (gesture == 3) | (gesture == 4) | (gesture == 5):
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', gesture)
+
+                cv2.putText(
+                    frame,
+                    "please choose a kind of detection",
+                    (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75,
+                    (0, 0, 255),
+                    2
+                )
+
+                cv2.imshow('DoDetections!', frame)
+                break
 
         # press 'ESC' to quit
         k = cv2.waitKey(30) & 0xff
