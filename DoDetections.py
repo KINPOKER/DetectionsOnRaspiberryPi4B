@@ -571,12 +571,12 @@ def main():
                         # press 'ESC' to quit
                         k = cv2.waitKey(30) & 0xff
                         if k == 27:
-                            gesture = 1
+                            cv2.setTrackbarPos('gesture', 'DoDetections!', 1)
                             break
 
                         pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
                         if pre_gesture != gesture:
-                            gesture = pre_gesture
+                            cv2.setTrackbarPos('gesture', 'DoDetections!', pre_gesture)
                             break
 
                         image_np = objectDetection(sess, detection_graph, category_index, frame)
@@ -616,12 +616,12 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
-                    gesture = 1
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', 1)
                     break
 
                 pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
                 if pre_gesture != gesture:
-                    gesture = pre_gesture
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', pre_gesture)
                     break
 
                 image_np = textDetection(frame)
@@ -660,12 +660,12 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
-                    gesture = 1
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', 1)
                     break
 
                 pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
                 if pre_gesture != gesture:
-                    gesture = pre_gesture
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', pre_gesture)
                     break
 
                 image_np = faceDetection(frame)
@@ -704,12 +704,12 @@ def main():
                 # press 'ESC' to quit
                 k = cv2.waitKey(30) & 0xff
                 if k == 27:
-                    gesture = 1
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', 1)
                     break
 
                 pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
                 if pre_gesture != gesture:
-                    gesture = pre_gesture
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', pre_gesture)
                     break
 
                 pre_frame, image_np = movingDetection(pre_frame, frame)
@@ -739,7 +739,7 @@ def main():
 
                 pre_gesture = cv2.getTrackbarPos('gesture', 'DoDetections!')
                 if pre_gesture != gesture:
-                    gesture = pre_gesture
+                    cv2.setTrackbarPos('gesture', 'DoDetections!', pre_gesture)
                     break
 
                 # 获取阈值
